@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    font-family: 'Segoe UI', 'Poppins', Arial, sans-serif;
+}
+body {
+    background: transparent;
+    overflow: hidden;
+}
+
+/* ===== BOLINHA FLUTUANTE ===== */
+#ball {
+    position: fixed;
+    top: 100px;
+    left: 20px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #7c3aed, #ec4899);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.8), 0 0 40px rgba(236, 72, 153, 0.5);
+    z-index: 9999;
+    transition: transform 0.2s;
+    animation: pulse 2s infinite;
+}
+#ball:active { cursor: grabbing; transform: scale(0.95); }
+#ball::before {
+    content: "⚡";
+    font-size: 28px;
+    color: white;
+    filter: drop-shadow(0 0 5px rgba(255,255,255,0.8));
+}
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.8), 0 0 40px rgba(236, 72, 153, 0.5); }
+    50% { box-shadow: 0 0 30px rgba(124, 58, 237, 1), 0 0 60px rgba(236, 72, 153, 0.8); }
+}
+
+/* ===== PAINEL PRINCIPAL ===== */
+#menu {
+    position: fixed;
+    top: 50px;
+    left: 100px;
+    width: 420px;
+    height: 540px;
+    background: linear-gradient(135deg, #0a0e1a 0%, #1a1228 100%);
+    border: 1.5px solid #7c3aed;
+    border-radius: 20px;
+    box-shadow: 0 10px 50px rgba(0,0,0,0.7), 0 0 30px rgba(124,58,237,0.3);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 9998;
+}
+#menu.open { display: flex; }
+
+/* ===== HEADER ===== */
+.header {
+    background: linear-gradient(135deg, #0f1322, #1a1228);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(124,58,237,0.3);
+    cursor: grab;
+}
+.header:active { cursor: grabbing; }
+.header h1 {
+    font-size: 16px;
+    background: linear-gradient(135deg, #7c3aed, #ec4899, #f59e0b);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+.header .close-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(236,72,153,0.2);
+    border: 1px solid rgba(236,72,153,0.5);
+    color: #ec4899;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.header .close-btn:active { transform: scale(0.9); }
+
+/* ===== LAYOUT ===== */
+.layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+    width: 120px;
+    background: rgba(0,0,0,0.3);
+    border-right: 1px solid rgba(124,58,237,0.2);
+    padding: 10px 0;
+    overflow-y: auto;
+}
+.sidebar::-webkit-scrollbar { width: 3px; }
+.sidebar::-webkit-scrollbar-thumb { background: #7c3aed; border-radius: 10px; }
+
+.folder {
+    width: 100%;
+    padding: 12px 14px;
+    background: transparent;
+    border: none;
+    border-left: 3px solid transparent;
+    color: #999;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.folder:active { background: rgba(124,58,237,0.2); }
+.folder.active {
+    background: rgba(124,58,237,0.15);
+    border-left-color: #7c3aed;
+    color: #c8a84b;
+    font-weight: bold;
+}
+
+/* ===== CONTEÚDO ===== */
+.content {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+}
+.content::-webkit-scrollbar { width: 4px; }
+.content::-webkit-scrollbar-thumb { background: #7c3aed; border-radius: 10px; }
+
+.page { display: none; }
+.page.active { display: block; animation: fadeIn 0.3s; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+.section-title {
+    font-size: 11px;
+    color: #c8a84b;
+    letter-spacing: 2px;
+    margin: 15px 0 10px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(200,168,75,0.2);
+    text-align: center;
+}
+
+/* ===== CARD DE TOGGLE ===== */
+.card {
+    background: rgba(15,19,34,0.8);
+    border: 1px solid rgba(124,58,237,0.2);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.card-label {
+    color: white;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* ===== TOGGLE SWITCH ===== */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 24px;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider-toggle {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #333;
+    transition: 0.3s;
+    border-radius: 24px;
+}
+.slider-toggle:before {
+    position: absolute;
+    content: '';
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+input:checked + .slider-toggle {
+    background: linear-gradient(135deg, #7c3aed, #ec4899);
+    box-shadow: 0 0 10px rgba(124,58,237,0.6);
+}
+input:checked + .slider-toggle:before { transform: translateX(24px); }
+
+/* ===== SLIDER ===== */
+.slider-row {
+    background: rgba(15,19,34,0.8);
+    border: 1px solid rgba(124,58,237,0.2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+}
+.slider-row label {
+    display: block;
+    color: white;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+.slider-row .slider-value {
+    color: #c8a84b;
+    font-weight: bold;
+    float: right;
+}
+input[type=range] {
+    width: 100%;
+    height: 4px;
+    background: #2a2f40;
+    border-radius: 4px;
+    -webkit-appearance: none;
+    outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #7c3aed, #ec4899);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(124,58,237,0.8);
+}
+
+/* ===== BOTÃO AÇÃO ===== */
+.action-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #7c3aed, #ec4899);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+.action-btn:active { transform: scale(0.97); }
+
+/* ===== FOOTER ===== */
+.footer {
+    background: rgba(0,0,0,0.4);
+    padding: 8px;
+    font-size: 9px;
+    color: #555;
+    text-align: center;
+    border-top: 1px solid rgba(124,58,237,0.2);
+    letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+
+<!-- BOLINHA FLUTUANTE -->
+<div id="ball" data-gs2drag>⚡</div>
+
+<!-- PAINEL -->
+<div id="menu">
+    <div class="header" data-gs2drag>
+        <h1>MAXMODSS PREMIUM</h1>
+        <div class="close-btn" data-gs2nodrag onclick="fechar()">✕</div>
+    </div>
+    
+    <div class="layout" data-gs2nodrag>
+        <div class="sidebar" id="sidebar"></div>
+        <div class="content" id="content"></div>
+    </div>
+    
+    <div class="footer">MAXMODSS | PREMIUM EDITION</div>
+</div>
+
+<script>
+// ===== SONS =====
+var somOn = new Audio('https://raw.githubusercontent.com/gabriel6061yt-cell/Audios/main/Fern-(brasil)-2026-05-23-10-42-%5Banimada%5D-Ativado.mp3');
+var somOff = new Audio('https://raw.githubusercontent.com/gabriel6061yt-cell/Audios/main/Fern-(brasil)-2026-05-23-10-41-%5Bgritando%5D-Desativadooo.mp3');
+somOn.volume = 0.5;
+somOff.volume = 0.5;
+
+function playOn() { try { somOn.currentTime = 0; somOn.play(); } catch(e) {} }
+function playOff() { try { somOff.currentTime = 0; somOff.play(); } catch(e) {} }
+
+// ===== CHAMAR GS2 =====
+function gs2(event, value) {
+    if (typeof _gs2call === 'function') _gs2call(event, value || '');
+}
+
+// ===== FECHAR PAINEL =====
+function fechar() {
+    document.getElementById('menu').classList.remove('open');
+    document.getElementById('ball').style.display = 'flex';
+    playOff();
+}
+
+// ===== BOLINHA ABRIR =====
+document.getElementById('ball').addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    this._startX = e.touches[0].clientX;
+    this._startY = e.touches[0].clientY;
+    this._moved = false;
+}, { passive: false });
+
+document.getElementById('ball').addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    var dx = e.touches[0].clientX - this._startX;
+    var dy = e.touches[0].clientY - this._startY;
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) this._moved = true;
+    this.style.left = (this._startX + dx - 30) + 'px';
+    this.style.top = (this._startY + dy - 30) + 'px';
+}, { passive: false });
+
+document.getElementById('ball').addEventListener('touchend', function(e) {
+    e.preventDefault();
+    if (!this._moved) {
+        document.getElementById('menu').classList.add('open');
+        this.style.display = 'none';
+        playOn();
+    }
+}, { passive: false });
+
+// ===== ABAS =====
+var abas = [
+    { id: 'esp', nome: '👁 ESP' },
+    { id: 'loot', nome: '💰 LOOT' },
+    { id: 'insetos', nome: '🐛 INSETOS' },
+    { id: 'spawn', nome: '🎯 SPAWN' },
+    { id: 'bush', nome: '🌿 BUSH' },
+    { id: 'tp', nome: '📍 TP' }
+];
+
+var paginas = {
+    esp: `<div class="section-title">ESP</div>
+        <div class="card"><span class="card-label">ESP ADMIN</span><label class="switch"><input type="checkbox" onchange="toggle('espAdmin',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="slider-row"><label>Zoom Admin: <span class="slider-value" id="zoomVal">3</span></label><input type="range" min="1" max="10" value="3" oninput="document.getElementById('zoomVal').innerText=this.value; gs2('zoom', this.value)"></div>
+        <div class="card"><span class="card-label">ESP PLAYER</span><label class="switch"><input type="checkbox" onchange="toggle('espPlayer',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="card"><span class="card-label">ESP INSETOS</span><label class="switch"><input type="checkbox" onchange="toggle('espInsetos',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="card"><span class="card-label">HORSE SPEED</span><label class="switch"><input type="checkbox" onchange="toggle('horse',this.checked)"><span class="slider-toggle"></span></label></div>`,
+
+    loot: `<div class="section-title">LOOT</div>
+        <div class="card"><span class="card-label">ESP LOOT</span><label class="switch"><input type="checkbox" onchange="toggle('espLoot',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="card"><span class="card-label">AUTO TP LOOT</span><label class="switch"><input type="checkbox" onchange="toggle('autoTp',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="card"><span class="card-label">CLICK TP</span><label class="switch"><input type="checkbox" onchange="toggle('clickTp',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="card"><span class="card-label">MAGNET</span><label class="switch"><input type="checkbox" onchange="toggle('magnet',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="section-title">AUTO-CATCH</div>
+        <div class="card"><span class="card-label">AUTO-CATCH</span><label class="switch"><input type="checkbox" onchange="toggle('autoCatch',this.checked)"><span class="slider-toggle"></span></label></div>`,
+
+    insetos: `<div class="section-title">INSETOS</div>
+        <div class="card"><span class="card-label">SEGUIR INSETO</span><label class="switch"><input type="checkbox" onchange="toggle('seguir',this.checked)"><span class="slider-toggle"></span></label></div>
+        <button class="action-btn" onclick="acao('ladoCima')">^ CIMA</button>
+        <button class="action-btn" onclick="acao('ladoBaixo')">v BAIXO</button>
+        <div class="section-title">UTILIDADES</div>
+        <div class="card"><span class="card-label">TP CLICK</span><label class="switch"><input type="checkbox" onchange="toggle('tpClick',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="card"><span class="card-label">INVENCIBILIDADE</span><label class="switch"><input type="checkbox" onchange="toggle('inv',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="card"><span class="card-label">INF ITEMS</span><label class="switch"><input type="checkbox" onchange="toggle('infItems',this.checked)"><span class="slider-toggle"></span></label></div>`,
+
+    spawn: `<div class="section-title">SPAWN</div>
+        <div class="card"><span class="card-label">ARROW RAIN</span><label class="switch"><input type="checkbox" onchange="toggle('flecha',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="card"><span class="card-label">SPAWN CLICK</span><label class="switch"><input type="checkbox" onchange="toggle('spawnClick',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="card"><span class="card-label">BOMBA CLICK</span><label class="switch"><input type="checkbox" onchange="toggle('bombaClick',this.checked)"><span class="slider-toggle"></span></label></div>`,
+
+    bush: `<div class="section-title">BUSH</div>
+        <div class="card"><span class="card-label">ESPADA</span><label class="switch"><input type="checkbox" onchange="toggle('espada',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="card"><span class="card-label">RESTAURAR</span><label class="switch"><input type="checkbox" onchange="toggle('bush',this.checked)"><span class="slider-toggle"></span></label></div>
+        <div class="card"><span class="card-label">QUEBRAR</span><label class="switch"><input type="checkbox" onchange="toggle('bushAuto',this.checked)"><span class="slider-toggle"></span></label></div>`,
+
+    tp: `<div class="section-title">TELEPORTE</div>
+        <button class="action-btn" onclick="acao('tpCity')">TP GRAAL CITY</button>
+        <button class="action-btn" onclick="acao('tpGralats')">IR PARA GRALATS</button>
+        <button class="action-btn" onclick="acao('tpLoot')">IR PARA LOOT</button>`
+};
+
+// ===== FUNÇÕES =====
+function toggle(id, val) {
+    if (val) playOn(); else playOff();
+    gs2('toggle', id + ':' + (val ? '1' : '0'));
+}
+
+function acao(id) {
+    playOn();
+    gs2('action', id);
+}
+
+// ===== RENDER =====
+function renderSidebar() {
+    var sb = document.getElementById('sidebar');
+    sb.innerHTML = '';
+    abas.forEach(function(a, i) {
+        var btn = document.createElement('button');
+        btn.className = 'folder' + (i === 0 ? ' active' : '');
+        btn.innerHTML = a.nome;
+        btn.onclick = function() {
+            document.querySelectorAll('.folder').forEach(function(el){ el.classList.remove('active'); });
+            btn.classList.add('active');
+            switchPage(a.id);
+        };
+        sb.appendChild(btn);
+    });
+}
+
+function switchPage(id) {
+    document.querySelectorAll('.page').forEach(function(el){ el.classList.remove('active'); });
+    var page = document.getElementById('page-' + id);
+    if (page) page.classList.add('active');
+}
+
+function renderContent() {
+    var c = document.getElementById('content');
+    c.innerHTML = '';
+    abas.forEach(function(a, i) {
+        var div = document.createElement('div');
+        div.className = 'page' + (i === 0 ? ' active' : '');
+        div.id = 'page-' + a.id;
+        div.innerHTML = paginas[a.id];
+        c.appendChild(div);
+    });
+}
+
+// ===== INIT =====
+document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+renderSidebar();
+renderContent();
+</script>
+
+</body>
+</html>
