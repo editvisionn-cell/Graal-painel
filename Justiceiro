@@ -1,0 +1,474 @@
+--[[
+    =======================================================
+    JUSTICEIRO HUB - PREMIUM EDITION
+    =======================================================
+    - Design moderno com sistema de Abas
+    - Auto-Snipe (Roubar ovos rapidamente)
+    - Bypass de Cooldown
+    - Auto-Farm, Hitbox, Noclip e ESP
+    =======================================================
+]]
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ================= CONFIGURAÇÕES =================
+local state = {
+    -- Aba Ativa
+    abaAtual = "PLAYER",
+    
+    -- Mods
+    speedAtivo = false,
+    velocidadeAtual = 16,
+    autoAttackAtivo = false,
+    hitboxAtivo = false,
+    petsOcultos = false,
+    noclipAtivo = false,
+    autoSnipeAtivo = false,
+    
+    -- TP
+    slotSelecionado = 1,
+    posicoesSalvas = { [1] = nil, [2] = nil },
+    
+    -- Elevador
+    plataformaAtiva = false,
+    plataformaAtual = nil,
+    forcaSubida = 200,
+}
+
+local espDestaques = {}
+local hitboxOriginais = {}
+local petsSalvos = {} 
+
+-- ================= UI HELPERS (DESIGN) =================
+local CORES = {
+    Fundo = Color3.fromRGB(15, 15, 20),
+    Painel = Color3.fromRGB(25, 25, 32),
+    Header = Color3.fromRGB(35, 35, 45),
+    BotaoInativo = Color3.fromRGB(45, 45, 60),
+    BotaoAtivo = Color3.fromRGB(0, 170, 100),
+    Texto = Color3.fromRGB(240, 240, 240),
+    TextoSub = Color3.fromRGB(150, 150, 160),
+    Destaque = Color3.fromRGB(0, 255, 150),
+}
+
+local function novo(classe, props, parent)
+    local o = Instance.new(classe)
+    for k, v in pairs(props or {}) do o[k] = v end
+    if parent then o.Parent = parent end
+    return o
+end
+
+local function arredondar(obj, r)
+    novo("UICorner", { CornerRadius = UDim.new(0, r or 6) }, obj)
+end
+
+-- ================= UI PRINCIPAL =================
+local screenGui = novo("ScreenGui", {
+    Name = "JusticeiroHub",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, PlayerGui)
+
+-- Painel Principal
+local painel = novo("Frame", {
+    Size = UDim2.new(0, 280, 0, 420),
+    Position = UDim2.new(0, 15, 0.1, 0),
+    BackgroundColor3 = CORES.Fundo,
+    BorderSizePixel = 0,
+    Active = true,
+}, screenGui)
+arredondar(painel, 12)
+novo("UIStroke", { Color = Color3.fromRGB(50, 50, 70), Thickness = 1.5 }, painel)
+
+-- Header (Arrastar)
+local header = novo("Frame", {
+    Size = UDim2.new(1, 0, 0, 45),
+    BackgroundColor3 = CORES.Header,
+    BorderSizePixel = 0,
+}, painel)
+arredondar(header, 12)
+
+-- Título
+novo("TextLabel", {
+    Size = UDim2.new(1, -60, 1, 0),
+    Position = UDim2.new(0, 15, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "JUSTICEIRO HUB",
+    TextColor3 = CORES.Destaque,
+    Font = Enum.Font.GothamBlack,
+    TextSize = 16,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, header)
+
+-- Botão Minimizar
+local btnMinimizar = novo("TextButton", {
+    Size = UDim2.new(0, 30, 0, 30),
+    Position = UDim2.new(1, -40, 0.5, -15),
+    BackgroundColor3 = CORES.BotaoInativo,
+    Text = "-",
+    TextColor3 = CORES.Texto,
+    Font = Enum.Font.GothamBold,
+    TextSize = 20,
+}, header)
+arredondar(btnMinimizar, 6)
+
+-- ================= SISTEMA DE ABAS =================
+local containerAbas = novo("Frame", {
+    Size = UDim2.new(1, -20, 0, 35),
+    Position = UDim2.new(0, 10, 0, 55),
+    BackgroundColor3 = CORES.Painel,
+}, painel)
+arredondar(containerAbas, 8)
+novo("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center }, containerAbas)
+
+local function criarAba(nome, texto, layoutOrder)
+    local btn = novo("TextButton", {
+        Size = UDim2.new(0.3, 0, 0.8, 0),
+        BackgroundColor3 = CORES.BotaoInativo,
+        Text = texto,
+        TextColor3 = CORES.TextoSub,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        LayoutOrder = layoutOrder,
+    }, containerAbas)
+    arredondar(btn, 6)
+    return btn
+end
+
+local abaPlayer = criarAba("PLAYER", "👤 Player", 1)
+local abaFarm = criarAba("FARM", "⚔️ Farm", 2)
+local abaSnipe = criarAba("SNIPE", "🚀 Snipe", 3)
+
+-- ================= CONTEÚDO DAS ABAS =================
+local containerConteudo = novo("Frame", {
+    Size = UDim2.new(1, -20, 1, -100),
+    Position = UDim2.new(0, 10, 0, 95),
+    BackgroundTransparency = 1,
+}, painel)
+novo("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, containerConteudo)
+
+-- [ ABA PLAYER ]
+local framePlayer = novo("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = true }, containerConteudo)
+novo("UIListLayout", { Padding = UDim.new(0, 8) }, framePlayer)
+
+local function criarBotao(parent, texto, layoutOrder)
+    local btn = novo("TextButton", {
+        Size = UDim2.new(1, 0, 0, 38),
+        BackgroundColor3 = CORES.BotaoInativo,
+        Text = texto,
+        TextColor3 = CORES.Texto,
+        Font = Enum.Font.GothamMedium,
+        TextSize = 13,
+        LayoutOrder = layoutOrder,
+    }, parent)
+    arredondar(btn, 8)
+    return btn
+end
+
+local btnESP = criarBotao(framePlayer, "👁️ ESP (Ver Players): OFF", 1)
+local btnPets = criarBotao(framePlayer, "🐾 Ocultar Pets (Anti-Lag): OFF", 2)
+local btnNoclip = criarBotao(framePlayer, "👻 Noclip (Atravessar): OFF", 3)
+local btnSpeed = criarBotao(framePlayer, "⚡ Speed (Bypass): OFF", 4)
+
+-- Slider de Velocidade
+local sliderFundo = novo("Frame", { Size = UDim2.new(1, 0, 0, 12), BackgroundColor3 = CORES.BotaoInativo, LayoutOrder = 5 }, framePlayer)
+arredondar(sliderFundo, 6)
+local sliderPreenchido = novo("Frame", { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = CORES.Destaque }, sliderFundo)
+arredondar(sliderPreenchido, 6)
+
+-- [ ABA FARM ]
+local frameFarm = novo("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = false }, containerConteudo)
+novo("UIListLayout", { Padding = UDim.new(0, 8) }, frameFarm)
+
+local btnAutoAttack = criarBotao(frameFarm, "⚔️ Auto-Attack (Bater Rápido): OFF", 1)
+local btnHitbox = criarBotao(frameFarm, "🎯 Hitbox (Matar de Longe): OFF", 2)
+local btnElevador = criarBotao(frameFarm, "🧱 Elevador Voador: OFF", 3)
+
+-- [ ABA SNIPE ]
+local frameSnipe = novo("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = false }, containerConteudo)
+novo("UIListLayout", { Padding = UDim.new(0, 8) }, frameSnipe)
+
+local btnAutoSnipe = criarBotao(frameSnipe, "🥚 Auto-Snipe (Roubar Ovo): OFF", 1)
+local btnSalvar = criarBotao(frameSnipe, "💾 Salvar Base (Slot 1)", 2)
+local btnTP = criarBotao(frameSnipe, "🏠 Voltar para Base", 3)
+
+-- ================= LÓGICA DAS ABAS =================
+local function mudarAba(aba)
+    framePlayer.Visible = (aba == "PLAYER")
+    frameFarm.Visible = (aba == "FARM")
+    frameSnipe.Visible = (aba == "SNIPE")
+    
+    abaPlayer.BackgroundColor3 = (aba == "PLAYER") and CORES.Painel or CORES.BotaoInativo
+    abaFarm.BackgroundColor3 = (aba == "FARM") and CORES.Painel or CORES.BotaoInativo
+    abaSnipe.BackgroundColor3 = (aba == "SNIPE") and CORES.Painel or CORES.BotaoInativo
+    
+    abaPlayer.TextColor3 = (aba == "PLAYER") and CORES.Destaque or CORES.TextoSub
+    abaFarm.TextColor3 = (aba == "FARM") and CORES.Destaque or CORES.TextoSub
+    abaSnipe.TextColor3 = (aba == "SNIPE") and CORES.Destaque or CORES.TextoSub
+end
+
+abaPlayer.MouseButton1Click:Connect(function() mudarAba("PLAYER") end)
+abaFarm.MouseButton1Click:Connect(function() mudarAba("FARM") end)
+abaSnipe.MouseButton1Click:Connect(function() mudarAba("SNIPE") end)
+
+-- ================= FUNÇÕES DE BOTÃO =================
+local function toggleBotao(btn, textoOriginal, estadoAtual, corAtiva)
+    btn.Text = textoOriginal .. (estadoAtual and " [ON]" or " [OFF]")
+    btn.BackgroundColor3 = estadoAtual and corAtiva or CORES.BotaoInativo
+end
+
+btnMinimizar.MouseButton1Click:Connect(function()
+    painel.Size = painel.Size.Y.Offset == 45 and UDim2.new(0, 280, 0, 420) or UDim2.new(0, 280, 0, 45)
+    conteudo.Visible = not conteudo.Visible
+    btnMinimizar.Text = conteudo.Visible and "-" or "+"
+end)
+
+-- Lógica ESP
+btnESP.MouseButton1Click:Connect(function()
+    state.espAtivo = not state.espAtivo
+    toggleBotao(btnESP, "👁️ ESP (Ver Players): ", state.espAtivo, CORES.BotaoAtivo)
+end)
+
+-- Lógica Pets
+btnPets.MouseButton1Click:Connect(function()
+    state.petsOcultos = not state.petsOcultos
+    toggleBotao(btnPets, "🐾 Ocultar Pets (Anti-Lag): ", state.petsOcultos, CORES.BotaoAtivo)
+end)
+
+-- Lógica Noclip
+btnNoclip.MouseButton1Click:Connect(function()
+    state.noclipAtivo = not state.noclipAtivo
+    toggleBotao(btnNoclip, "👻 Noclip (Atravessar): ", state.noclipAtivo, CORES.BotaoAtivo)
+end)
+
+-- Lógica Speed
+btnSpeed.MouseButton1Click:Connect(function()
+    state.speedAtivo = not state.speedAtivo
+    toggleBotao(btnSpeed, "⚡ Speed (Bypass): ", state.speedAtivo, CORES.BotaoAtivo)
+end)
+
+-- Lógica Auto-Attack
+btnAutoAttack.MouseButton1Click:Connect(function()
+    state.autoAttackAtivo = not state.autoAttackAtivo
+    toggleBotao(btnAutoAttack, "⚔️ Auto-Attack: ", state.autoAttackAtivo, CORES.BotaoAtivo)
+end)
+
+-- Lógica Hitbox
+btnHitbox.MouseButton1Click:Connect(function()
+    state.hitboxAtivo = not state.hitboxAtivo
+    toggleBotao(btnHitbox, "🎯 Hitbox: ", state.hitboxAtivo, CORES.BotaoAtivo)
+end)
+
+-- Lógica Elevador
+btnElevador.MouseButton1Click:Connect(function()
+    state.plataformaAtiva = not state.plataformaAtiva
+    toggleBotao(btnElevador, "🧱 Elevador Voador: ", state.plataformaAtiva, CORES.BotaoAtivo)
+end)
+
+-- Lógica Auto-Snipe (A NOVIDADE)
+btnAutoSnipe.MouseButton1Click:Connect(function()
+    state.autoSnipeAtivo = not state.autoSnipeAtivo
+    toggleBotao(btnAutoSnipe, "🥚 Auto-Snipe: ", state.autoSnipeAtivo, CORES.BotaoAtivo)
+end)
+
+-- Lógica Salvar Base
+btnSalvar.MouseButton1Click:Connect(function()
+    local char = LocalPlayer.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            state.posicoesSalvas[1] = hrp.CFrame
+            btnSalvar.Text = "💾 Base Salva!"
+            task.delay(2, function() btnSalvar.Text = "💾 Salvar Base (Slot 1)" end)
+        end
+    end
+end)
+
+-- Lógica Voltar Base
+btnTP.MouseButton1Click:Connect(function()
+    if not state.posicoesSalvas[1] then return end
+    local char = LocalPlayer.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = state.posicoesSalvas[1]
+            hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        end
+    end
+end)
+
+-- ================= LOOP PRINCIPAL =================
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
+
+    -- Noclip
+    if state.noclipAtivo then
+        for _, parte in ipairs(char:GetDescendants()) do
+            if parte:IsA("BasePart") then parte.CanCollide = false end
+        end
+    end
+
+    -- Speed Bypass
+    if state.speedAtivo and not state.noclipAtivo then
+        hum.WalkSpeed = 16 
+        if hrp.AssemblyLinearVelocity.Magnitude > 1 then
+            hrp.CFrame = hrp.CFrame + (hrp.CFrame.LookVector * ((state.velocidadeAtual - 16) * 0.025))
+        end
+    elseif state.speedAtivo and state.noclipAtivo then
+        hum.WalkSpeed = state.velocidadeAtual
+    end
+
+    -- Elevador
+    if state.plataformaAtiva then
+        if not state.plataformaAtual or not state.plataformaAtual.Parent then
+            local plat = Instance.new("Part")
+            plat.Size = Vector3.new(8, 1, 8)
+            plat.Anchored = true
+            plat.CanCollide = true
+            plat.Material = Enum.Material.Neon
+            plat.Color = CORES.Destaque
+            plat.Transparency = 0.5
+            plat.Parent = workspace
+            state.plataformaAtual = plat
+        end
+        state.plataformaAtual.CFrame = CFrame.new(Vector3.new(hrp.Position.X, hrp.Position.Y - 3, hrp.Position.Z))
+        hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, state.forcaSubida, hrp.AssemblyLinearVelocity.Z)
+    elseif state.plataformaAtual then
+        state.plataformaAtual:Destroy()
+        state.plataformaAtual = nil
+    end
+end)
+
+-- ================= LOOP AUTO-SNIPE (ROUBAR OVO) =================
+task.spawn(function()
+    while task.wait(0.1) do
+        if state.autoSnipeAtivo then
+            local char = LocalPlayer.Character
+            if not char then continue end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hrp then continue end
+
+            -- 1. Procura o ovo mais próximo (que tenha "Egg" ou "Ovo" no nome)
+            local ovosNoMapa = workspace:GetDescendants()
+            local ovoAlvo = nil
+            local menorDist = 9999
+
+            for _, obj in ipairs(ovosNoMapa) do
+                if obj:IsA("BasePart") or obj:IsA("Model") then
+                    local nome = string.lower(obj.Name)
+                    if (string.find(nome, "egg") or string.find(nome, "ovo")) and not obj:FindFirstAncestorOfClass("Model") then
+                        local pos = obj:IsA("BasePart") and obj.Position or (obj:FindFirstChild("HumanoidRootPart") and obj.HumanoidRootPart.Position)
+                        if pos then
+                            local dist = (pos - hrp.Position).Magnitude
+                            if dist < menorDist then
+                                menorDist = dist
+                                ovoAlvo = obj
+                            end
+                        end
+                    end
+                end
+            end
+
+            -- 2. Se achou o ovo, faz o Teleporte Snipe e Coleta
+            if ovoAlvo then
+                local posOvo = ovoAlvo:IsA("BasePart") and ovoAlvo.Position or (ovoAlvo:FindFirstChild("HumanoidRootPart") and ovoAlvo.HumanoidRootPart.Position)
+                
+                if posOvo then
+                    -- Teleporta para o ovo
+                    hrp.CFrame = CFrame.new(posOvo + Vector3.new(0, 3, 0))
+                    
+                    -- Procura o botão de coletar (ProximityPrompt)
+                    local prompt = ovoAlvo:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    if prompt then
+                        fireproximityprompt(prompt)
+                    end
+
+                    -- 3. Volta para a base (se tiver salvo)
+                    if state.posicoesSalvas[1] then
+                        task.wait(0.1) -- Pequeno delay para o jogo registrar que você pegou
+                        hrp.CFrame = state.posicoesSalvas[1]
+                        
+                        -- Anula o "Modo Lento" que o jogo coloca quando você pega o ovo
+                        hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ================= LOOP AUTO-FARM (BATER) =================
+task.spawn(function()
+    while task.wait(0.05) do 
+        if not state.autoAttackAtivo and not state.hitboxAtivo then continue end
+        
+        local char = LocalPlayer.Character
+        if not char then continue end
+        
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hrp or not hum then continue end
+
+        local arma = char:FindFirstChildOfClass("Tool")
+        if arma then
+            pcall(function()
+                if arma:FindFirstChild("Cooldown") then arma.Cooldown.Value = 0 end
+            end)
+        end
+
+        local partesNoRaio = workspace:GetPartBoundsInRadius(hrp.Position, 80)
+        local alvo = nil
+        local menorDist = 9999
+
+        for _, parte in ipairs(partesNoRaio) do
+            local modelo = parte:FindFirstAncestorOfClass("Model")
+            if modelo and modelo ~= char then
+                local npcHum = modelo:FindFirstChildOfClass("Humanoid")
+                local npcHrp = modelo:FindFirstChild("HumanoidRootPart") or modelo:FindFirstChild("Torso")
+                
+                if npcHum and npcHum.Health > 0 and npcHrp and not Players:GetPlayerFromCharacter(modelo) then
+                    if state.hitboxAtivo then
+                        if not hitboxOriginais[modelo] then hitboxOriginais[modelo] = npcHrp.Size end
+                        npcHrp.Size = Vector3.new(30, 30, 30)
+                        npcHrp.Transparency = 0.5
+                    end
+                    
+                    local dist = (npcHrp.Position - hrp.Position).Magnitude
+                    if dist < menorDist then
+                        menorDist = dist
+                        alvo = modelo
+                    end
+                end
+            end
+        end
+
+        if state.autoAttackAtivo and alvo then
+            if not arma then
+                local mochila = LocalPlayer:FindFirstChildOfClass("Backpack")
+                if mochila then
+                    local ferramenta = mochila:FindFirstChildWhichIsA("Tool")
+                    if ferramenta then hum:EquipTool(ferramenta); arma = ferramenta end
+                end
+            end
+            
+            if arma then
+                for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+                    if track.Priority == Enum.AnimationPriority.Action then track:Stop() end
+                end
+                arma:Activate()
+            end
+        end
+    end
+end)
