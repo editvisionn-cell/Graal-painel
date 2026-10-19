@@ -2,27 +2,18 @@
     =======================================================
     JUSTICEIRO HUB - PREMIUM EDITION
     =======================================================
-    - Design moderno com sistema de Abas
-    - Auto-Snipe (Roubar ovos rapidamente)
-    - Bypass de Cooldown
-    - Auto-Farm, Hitbox, Noclip e ESP
-    =======================================================
 ]]
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- ================= CONFIGURAÇÕES =================
 local state = {
-    -- Aba Ativa
     abaAtual = "PLAYER",
-    
-    -- Mods
     speedAtivo = false,
     velocidadeAtual = 16,
     autoAttackAtivo = false,
@@ -30,12 +21,7 @@ local state = {
     petsOcultos = false,
     noclipAtivo = false,
     autoSnipeAtivo = false,
-    
-    -- TP
-    slotSelecionado = 1,
-    posicoesSalvas = { [1] = nil, [2] = nil },
-    
-    -- Elevador
+    posicoesSalvas = { [1] = nil },
     plataformaAtiva = false,
     plataformaAtual = nil,
     forcaSubida = 200,
@@ -45,7 +31,7 @@ local espDestaques = {}
 local hitboxOriginais = {}
 local petsSalvos = {} 
 
--- ================= UI HELPERS (DESIGN) =================
+-- ================= UI HELPERS =================
 local CORES = {
     Fundo = Color3.fromRGB(15, 15, 20),
     Painel = Color3.fromRGB(25, 25, 32),
@@ -225,60 +211,59 @@ local function toggleBotao(btn, textoOriginal, estadoAtual, corAtiva)
 end
 
 btnMinimizar.MouseButton1Click:Connect(function()
-    painel.Size = painel.Size.Y.Offset == 45 and UDim2.new(0, 280, 0, 420) or UDim2.new(0, 280, 0, 45)
-    conteudo.Visible = not conteudo.Visible
-    btnMinimizar.Text = conteudo.Visible and "-" or "+"
+    if painel.Size.Y.Offset == 420 then
+        painel.Size = UDim2.new(0, 280, 0, 45)
+        containerAbas.Visible = false
+        containerConteudo.Visible = false
+        btnMinimizar.Text = "+"
+    else
+        painel.Size = UDim2.new(0, 280, 0, 420)
+        containerAbas.Visible = true
+        containerConteudo.Visible = true
+        btnMinimizar.Text = "-"
+    end
 end)
 
--- Lógica ESP
 btnESP.MouseButton1Click:Connect(function()
     state.espAtivo = not state.espAtivo
     toggleBotao(btnESP, "👁️ ESP (Ver Players): ", state.espAtivo, CORES.BotaoAtivo)
 end)
 
--- Lógica Pets
 btnPets.MouseButton1Click:Connect(function()
     state.petsOcultos = not state.petsOcultos
     toggleBotao(btnPets, "🐾 Ocultar Pets (Anti-Lag): ", state.petsOcultos, CORES.BotaoAtivo)
 end)
 
--- Lógica Noclip
 btnNoclip.MouseButton1Click:Connect(function()
     state.noclipAtivo = not state.noclipAtivo
     toggleBotao(btnNoclip, "👻 Noclip (Atravessar): ", state.noclipAtivo, CORES.BotaoAtivo)
 end)
 
--- Lógica Speed
 btnSpeed.MouseButton1Click:Connect(function()
     state.speedAtivo = not state.speedAtivo
     toggleBotao(btnSpeed, "⚡ Speed (Bypass): ", state.speedAtivo, CORES.BotaoAtivo)
 end)
 
--- Lógica Auto-Attack
 btnAutoAttack.MouseButton1Click:Connect(function()
     state.autoAttackAtivo = not state.autoAttackAtivo
     toggleBotao(btnAutoAttack, "⚔️ Auto-Attack: ", state.autoAttackAtivo, CORES.BotaoAtivo)
 end)
 
--- Lógica Hitbox
 btnHitbox.MouseButton1Click:Connect(function()
     state.hitboxAtivo = not state.hitboxAtivo
     toggleBotao(btnHitbox, "🎯 Hitbox: ", state.hitboxAtivo, CORES.BotaoAtivo)
 end)
 
--- Lógica Elevador
 btnElevador.MouseButton1Click:Connect(function()
     state.plataformaAtiva = not state.plataformaAtiva
     toggleBotao(btnElevador, "🧱 Elevador Voador: ", state.plataformaAtiva, CORES.BotaoAtivo)
 end)
 
--- Lógica Auto-Snipe (A NOVIDADE)
 btnAutoSnipe.MouseButton1Click:Connect(function()
     state.autoSnipeAtivo = not state.autoSnipeAtivo
     toggleBotao(btnAutoSnipe, "🥚 Auto-Snipe: ", state.autoSnipeAtivo, CORES.BotaoAtivo)
 end)
 
--- Lógica Salvar Base
 btnSalvar.MouseButton1Click:Connect(function()
     local char = LocalPlayer.Character
     if char then
@@ -291,7 +276,6 @@ btnSalvar.MouseButton1Click:Connect(function()
     end
 end)
 
--- Lógica Voltar Base
 btnTP.MouseButton1Click:Connect(function()
     if not state.posicoesSalvas[1] then return end
     local char = LocalPlayer.Character
@@ -304,6 +288,27 @@ btnTP.MouseButton1Click:Connect(function()
     end
 end)
 
+-- ================= ARRASTAR PAINEL =================
+local draggingPanel, dragStart, startPos
+header.InputBegan:Connect(function(input) 
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+        draggingPanel, dragStart, startPos = true, input.Position, painel.Position 
+    end 
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingPanel and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local d = input.Position - dragStart
+        painel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input) 
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+        draggingPanel = false 
+    end 
+end)
+
 -- ================= LOOP PRINCIPAL =================
 RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
@@ -313,14 +318,12 @@ RunService.Heartbeat:Connect(function()
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hrp or not hum then return end
 
-    -- Noclip
     if state.noclipAtivo then
         for _, parte in ipairs(char:GetDescendants()) do
             if parte:IsA("BasePart") then parte.CanCollide = false end
         end
     end
 
-    -- Speed Bypass
     if state.speedAtivo and not state.noclipAtivo then
         hum.WalkSpeed = 16 
         if hrp.AssemblyLinearVelocity.Magnitude > 1 then
@@ -330,7 +333,6 @@ RunService.Heartbeat:Connect(function()
         hum.WalkSpeed = state.velocidadeAtual
     end
 
-    -- Elevador
     if state.plataformaAtiva then
         if not state.plataformaAtual or not state.plataformaAtual.Parent then
             local plat = Instance.new("Part")
@@ -351,7 +353,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ================= LOOP AUTO-SNIPE (ROUBAR OVO) =================
+-- ================= LOOP AUTO-SNIPE =================
 task.spawn(function()
     while task.wait(0.1) do
         if state.autoSnipeAtivo then
@@ -360,7 +362,6 @@ task.spawn(function()
             local hrp = char:FindFirstChild("HumanoidRootPart")
             if not hrp then continue end
 
-            -- 1. Procura o ovo mais próximo (que tenha "Egg" ou "Ovo" no nome)
             local ovosNoMapa = workspace:GetDescendants()
             local ovoAlvo = nil
             local menorDist = 9999
@@ -381,26 +382,20 @@ task.spawn(function()
                 end
             end
 
-            -- 2. Se achou o ovo, faz o Teleporte Snipe e Coleta
             if ovoAlvo then
                 local posOvo = ovoAlvo:IsA("BasePart") and ovoAlvo.Position or (ovoAlvo:FindFirstChild("HumanoidRootPart") and ovoAlvo.HumanoidRootPart.Position)
                 
                 if posOvo then
-                    -- Teleporta para o ovo
                     hrp.CFrame = CFrame.new(posOvo + Vector3.new(0, 3, 0))
                     
-                    -- Procura o botão de coletar (ProximityPrompt)
                     local prompt = ovoAlvo:FindFirstChildWhichIsA("ProximityPrompt", true)
                     if prompt then
                         fireproximityprompt(prompt)
                     end
 
-                    -- 3. Volta para a base (se tiver salvo)
                     if state.posicoesSalvas[1] then
-                        task.wait(0.1) -- Pequeno delay para o jogo registrar que você pegou
+                        task.wait(0.1)
                         hrp.CFrame = state.posicoesSalvas[1]
-                        
-                        -- Anula o "Modo Lento" que o jogo coloca quando você pega o ovo
                         hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
                     end
                 end
@@ -409,7 +404,7 @@ task.spawn(function()
     end
 end)
 
--- ================= LOOP AUTO-FARM (BATER) =================
+-- ================= LOOP AUTO-FARM =================
 task.spawn(function()
     while task.wait(0.05) do 
         if not state.autoAttackAtivo and not state.hitboxAtivo then continue end
