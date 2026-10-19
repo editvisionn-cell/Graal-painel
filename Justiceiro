@@ -1,12 +1,17 @@
 --[[
     =======================================================
-    JUSTICEIRO HUB - PREMIUM EDITION
+    JUSTICEIRO HUB - PREMIUM EDITION (LIMPO)
+    =======================================================
+    - Design Deitado com Sidebar
+    - Animações Suaves (Tween)
+    - Funções: Speed, TP, Elevador, ESP, Noclip, Pets, Farm
     =======================================================
 ]]
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -20,8 +25,8 @@ local state = {
     hitboxAtivo = false,
     petsOcultos = false,
     noclipAtivo = false,
-    autoSnipeAtivo = false,
-    posicoesSalvas = { [1] = nil },
+    posicoesSalvas = { [1] = nil, [2] = nil },
+    slotSelecionado = 1,
     plataformaAtiva = false,
     plataformaAtual = nil,
     forcaSubida = 200,
@@ -34,13 +39,14 @@ local petsSalvos = {}
 -- ================= UI HELPERS =================
 local CORES = {
     Fundo = Color3.fromRGB(15, 15, 20),
-    Painel = Color3.fromRGB(25, 25, 32),
-    Header = Color3.fromRGB(35, 35, 45),
+    Sidebar = Color3.fromRGB(22, 22, 30),
+    Painel = Color3.fromRGB(30, 30, 40),
     BotaoInativo = Color3.fromRGB(45, 45, 60),
-    BotaoAtivo = Color3.fromRGB(0, 170, 100),
+    BotaoHover = Color3.fromRGB(60, 60, 80),
+    BotaoAtivo = Color3.fromRGB(138, 43, 226), -- Roxo Neon
     Texto = Color3.fromRGB(240, 240, 240),
     TextoSub = Color3.fromRGB(150, 150, 160),
-    Destaque = Color3.fromRGB(0, 255, 150),
+    Destaque = Color3.fromRGB(0, 255, 255), -- Azul Neon
 }
 
 local function novo(classe, props, parent)
@@ -54,6 +60,12 @@ local function arredondar(obj, r)
     novo("UICorner", { CornerRadius = UDim.new(0, r or 6) }, obj)
 end
 
+local function animarBotao(btn, entrar)
+    local corAlvo = entrar and CORES.BotaoHover or CORES.BotaoInativo
+    local tamanhoAlvo = entrar and UDim2.new(1.02, 0, 0, 36) or UDim2.new(1, 0, 0, 36)
+    TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {BackgroundColor3 = corAlvo, Size = tamanhoAlvo}):Play()
+end
+
 -- ================= UI PRINCIPAL =================
 local screenGui = novo("ScreenGui", {
     Name = "JusticeiroHub",
@@ -62,38 +74,36 @@ local screenGui = novo("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, PlayerGui)
 
--- Painel Principal
+-- Painel Principal (Deitado)
 local painel = novo("Frame", {
-    Size = UDim2.new(0, 280, 0, 420),
-    Position = UDim2.new(0, 15, 0.1, 0),
+    Size = UDim2.new(0, 480, 0, 300), 
+    Position = UDim2.new(0, 15, 0.15, 0),
     BackgroundColor3 = CORES.Fundo,
     BorderSizePixel = 0,
     Active = true,
 }, screenGui)
 arredondar(painel, 12)
-novo("UIStroke", { Color = Color3.fromRGB(50, 50, 70), Thickness = 1.5 }, painel)
+novo("UIStroke", { Color = CORES.Destaque, Thickness = 1.5, Transparency = 0.5 }, painel)
 
--- Header (Arrastar)
+-- Header (Barra de Arrastar)
 local header = novo("Frame", {
-    Size = UDim2.new(1, 0, 0, 45),
-    BackgroundColor3 = CORES.Header,
+    Size = UDim2.new(1, 0, 0, 40),
+    BackgroundColor3 = CORES.Sidebar,
     BorderSizePixel = 0,
 }, painel)
 arredondar(header, 12)
 
--- Título
 novo("TextLabel", {
     Size = UDim2.new(1, -60, 1, 0),
     Position = UDim2.new(0, 15, 0, 0),
     BackgroundTransparency = 1,
-    Text = "JUSTICEIRO HUB",
-    TextColor3 = CORES.Destaque,
+    Text = "⚖️ JUSTICEIRO HUB",
+    TextColor3 = CORES.Texto,
     Font = Enum.Font.GothamBlack,
     TextSize = 16,
     TextXAlignment = Enum.TextXAlignment.Left,
 }, header)
 
--- Botão Minimizar
 local btnMinimizar = novo("TextButton", {
     Size = UDim2.new(0, 30, 0, 30),
     Position = UDim2.new(1, -40, 0.5, -15),
@@ -105,48 +115,49 @@ local btnMinimizar = novo("TextButton", {
 }, header)
 arredondar(btnMinimizar, 6)
 
--- ================= SISTEMA DE ABAS =================
-local containerAbas = novo("Frame", {
-    Size = UDim2.new(1, -20, 0, 35),
-    Position = UDim2.new(0, 10, 0, 55),
-    BackgroundColor3 = CORES.Painel,
+-- ================= SIDEBAR (MENU ESQUERDO) =================
+local sidebar = novo("Frame", {
+    Size = UDim2.new(0, 110, 1, -50),
+    Position = UDim2.new(0, 10, 0, 50),
+    BackgroundColor3 = CORES.Sidebar,
 }, painel)
-arredondar(containerAbas, 8)
-novo("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center }, containerAbas)
+arredondar(sidebar, 8)
+novo("UIListLayout", { Padding = UDim.new(0, 5), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Top }, sidebar)
+novo("UIPadding", { PaddingTop = UDim.new(0, 10) }, sidebar)
 
-local function criarAba(nome, texto, layoutOrder)
+local function criarBotaoMenu(nome, icone, layoutOrder)
     local btn = novo("TextButton", {
-        Size = UDim2.new(0.3, 0, 0.8, 0),
+        Size = UDim2.new(0.9, 0, 0, 35),
         BackgroundColor3 = CORES.BotaoInativo,
-        Text = texto,
+        Text = icone .. " " .. nome,
         TextColor3 = CORES.TextoSub,
         Font = Enum.Font.GothamBold,
         TextSize = 12,
         LayoutOrder = layoutOrder,
-    }, containerAbas)
+    }, sidebar)
     arredondar(btn, 6)
+    btn.MouseEnter:Connect(function() animarBotao(btn, true) end)
+    btn.MouseLeave:Connect(function() animarBotao(btn, false) end)
     return btn
 end
 
-local abaPlayer = criarAba("PLAYER", "👤 Player", 1)
-local abaFarm = criarAba("FARM", "⚔️ Farm", 2)
-local abaSnipe = criarAba("SNIPE", "🚀 Snipe", 3)
+local menuPlayer = criarBotaoMenu("PLAYER", "👤", 1)
+local menuFarm = criarBotaoMenu("FARM", "⚔️", 2)
 
--- ================= CONTEÚDO DAS ABAS =================
+-- ================= ÁREA DE CONTEÚDO (DIREITA) =================
 local containerConteudo = novo("Frame", {
-    Size = UDim2.new(1, -20, 1, -100),
-    Position = UDim2.new(0, 10, 0, 95),
+    Size = UDim2.new(1, -130, 1, -50),
+    Position = UDim2.new(0, 125, 0, 50),
     BackgroundTransparency = 1,
 }, painel)
-novo("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, containerConteudo)
 
--- [ ABA PLAYER ]
+-- [ ABA PLAYER ] (Speed + TP + Extras)
 local framePlayer = novo("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = true }, containerConteudo)
-novo("UIListLayout", { Padding = UDim.new(0, 8) }, framePlayer)
+novo("UIListLayout", { Padding = UDim.new(0, 6) }, framePlayer)
 
-local function criarBotao(parent, texto, layoutOrder)
+local function criarBotaoAcao(parent, texto, layoutOrder)
     local btn = novo("TextButton", {
-        Size = UDim2.new(1, 0, 0, 38),
+        Size = UDim2.new(1, 0, 0, 36),
         BackgroundColor3 = CORES.BotaoInativo,
         Text = texto,
         TextColor3 = CORES.Texto,
@@ -154,138 +165,181 @@ local function criarBotao(parent, texto, layoutOrder)
         TextSize = 13,
         LayoutOrder = layoutOrder,
     }, parent)
-    arredondar(btn, 8)
+    arredondar(btn, 6)
+    btn.MouseEnter:Connect(function() animarBotao(btn, true) end)
+    btn.MouseLeave:Connect(function() animarBotao(btn, false) end)
     return btn
 end
 
-local btnESP = criarBotao(framePlayer, "👁️ ESP (Ver Players): OFF", 1)
-local btnPets = criarBotao(framePlayer, "🐾 Ocultar Pets (Anti-Lag): OFF", 2)
-local btnNoclip = criarBotao(framePlayer, "👻 Noclip (Atravessar): OFF", 3)
-local btnSpeed = criarBotao(framePlayer, "⚡ Speed (Bypass): OFF", 4)
+local btnSpeedToggle = criarBotaoAcao(framePlayer, "⚡ Speed (Bypass): OFF", 1)
+local btnESP = criarBotaoAcao(framePlayer, "👁️ ESP (Ver Players): OFF", 2)
+local btnPets = criarBotaoAcao(framePlayer, "🐾 Ocultar Pets (Anti-Lag): OFF", 3)
+local btnNoclip = criarBotaoAcao(framePlayer, "👻 Noclip (Atravessar): OFF", 4)
 
 -- Slider de Velocidade
-local sliderFundo = novo("Frame", { Size = UDim2.new(1, 0, 0, 12), BackgroundColor3 = CORES.BotaoInativo, LayoutOrder = 5 }, framePlayer)
-arredondar(sliderFundo, 6)
-local sliderPreenchido = novo("Frame", { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = CORES.Destaque }, sliderFundo)
-arredondar(sliderPreenchido, 6)
+local sliderBg = novo("Frame", { Size = UDim2.new(1, 0, 0, 10), BackgroundColor3 = CORES.BotaoInativo, LayoutOrder = 5 }, framePlayer)
+arredondar(sliderBg, 5)
+local fill = novo("Frame", { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = CORES.Destaque }, sliderBg)
+arredondar(fill, 5)
+local knob = novo("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(0, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.new(1, 1, 1), Text = "", BorderSizePixel = 0 }, sliderBg)
+arredondar(knob, 10)
+
+-- Botões de TP
+local frameSlots = novo("Frame", { Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, LayoutOrder = 6 }, framePlayer)
+novo("UIListLayout", { Padding = UDim.new(0, 4), FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder }, frameSlots)
+
+local btnSlot1 = novo("TextButton", { Size = UDim2.new(0.5, -2, 1, 0), BackgroundColor3 = CORES.BotaoAtivo, Text = "Slot 1 (Ativo)", TextColor3 = CORES.Texto, Font = Enum.Font.GothamBold, TextSize = 12, LayoutOrder = 1 }, frameSlots)
+arredondar(btnSlot1, 6)
+local btnSlot2 = novo("TextButton", { Size = UDim2.new(0.5, -2, 1, 0), BackgroundColor3 = CORES.BotaoInativo, Text = "Slot 2", TextColor3 = CORES.TextoSub, Font = Enum.Font.GothamBold, TextSize = 12, LayoutOrder = 2 }, frameSlots)
+arredondar(btnSlot2, 6)
+
+local btnSalvar = criarBotaoAcao(framePlayer, "💾 Salvar no Slot 1", 7)
+local btnTP = criarBotaoAcao(framePlayer, "🚀 TP p/ Slot 1", 8)
 
 -- [ ABA FARM ]
 local frameFarm = novo("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = false }, containerConteudo)
-novo("UIListLayout", { Padding = UDim.new(0, 8) }, frameFarm)
+novo("UIListLayout", { Padding = UDim.new(0, 6) }, frameFarm)
 
-local btnAutoAttack = criarBotao(frameFarm, "⚔️ Auto-Attack (Bater Rápido): OFF", 1)
-local btnHitbox = criarBotao(frameFarm, "🎯 Hitbox (Matar de Longe): OFF", 2)
-local btnElevador = criarBotao(frameFarm, "🧱 Elevador Voador: OFF", 3)
-
--- [ ABA SNIPE ]
-local frameSnipe = novo("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = false }, containerConteudo)
-novo("UIListLayout", { Padding = UDim.new(0, 8) }, frameSnipe)
-
-local btnAutoSnipe = criarBotao(frameSnipe, "🥚 Auto-Snipe (Roubar Ovo): OFF", 1)
-local btnSalvar = criarBotao(frameSnipe, "💾 Salvar Base (Slot 1)", 2)
-local btnTP = criarBotao(frameSnipe, "🏠 Voltar para Base", 3)
+local btnAutoAttack = criarBotaoAcao(frameFarm, "⚔️ Auto-Attack (Bater Rápido): OFF", 1)
+local btnHitbox = criarBotaoAcao(frameFarm, "🎯 Hitbox (Matar de Longe): OFF", 2)
+local btnElevador = criarBotaoAcao(frameFarm, "🧱 Elevador Voador: OFF", 3)
 
 -- ================= LÓGICA DAS ABAS =================
 local function mudarAba(aba)
     framePlayer.Visible = (aba == "PLAYER")
     frameFarm.Visible = (aba == "FARM")
-    frameSnipe.Visible = (aba == "SNIPE")
     
-    abaPlayer.BackgroundColor3 = (aba == "PLAYER") and CORES.Painel or CORES.BotaoInativo
-    abaFarm.BackgroundColor3 = (aba == "FARM") and CORES.Painel or CORES.BotaoInativo
-    abaSnipe.BackgroundColor3 = (aba == "SNIPE") and CORES.Painel or CORES.BotaoInativo
-    
-    abaPlayer.TextColor3 = (aba == "PLAYER") and CORES.Destaque or CORES.TextoSub
-    abaFarm.TextColor3 = (aba == "FARM") and CORES.Destaque or CORES.TextoSub
-    abaSnipe.TextColor3 = (aba == "SNIPE") and CORES.Destaque or CORES.TextoSub
+    if aba == "PLAYER" then
+        TweenService:Create(menuPlayer, TweenInfo.new(0.2), {BackgroundColor3 = CORES.BotaoAtivo, TextColor3 = CORES.Texto}):Play()
+        TweenService:Create(menuFarm, TweenInfo.new(0.2), {BackgroundColor3 = CORES.BotaoInativo, TextColor3 = CORES.TextoSub}):Play()
+    else
+        TweenService:Create(menuFarm, TweenInfo.new(0.2), {BackgroundColor3 = CORES.BotaoAtivo, TextColor3 = CORES.Texto}):Play()
+        TweenService:Create(menuPlayer, TweenInfo.new(0.2), {BackgroundColor3 = CORES.BotaoInativo, TextColor3 = CORES.TextoSub}):Play()
+    end
 end
 
-abaPlayer.MouseButton1Click:Connect(function() mudarAba("PLAYER") end)
-abaFarm.MouseButton1Click:Connect(function() mudarAba("FARM") end)
-abaSnipe.MouseButton1Click:Connect(function() mudarAba("SNIPE") end)
+menuPlayer.MouseButton1Click:Connect(function() mudarAba("PLAYER") end)
+menuFarm.MouseButton1Click:Connect(function() mudarAba("FARM") end)
 
 -- ================= FUNÇÕES DE BOTÃO =================
 local function toggleBotao(btn, textoOriginal, estadoAtual, corAtiva)
     btn.Text = textoOriginal .. (estadoAtual and " [ON]" or " [OFF]")
-    btn.BackgroundColor3 = estadoAtual and corAtiva or CORES.BotaoInativo
+    local corAlvo = estadoAtual and corAtiva or CORES.BotaoInativo
+    TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = corAlvo}):Play()
 end
 
+-- Minimizar Animado
+local minimizado = false
 btnMinimizar.MouseButton1Click:Connect(function()
-    if painel.Size.Y.Offset == 420 then
-        painel.Size = UDim2.new(0, 280, 0, 45)
-        containerAbas.Visible = false
-        containerConteudo.Visible = false
-        btnMinimizar.Text = "+"
-    else
-        painel.Size = UDim2.new(0, 280, 0, 420)
-        containerAbas.Visible = true
-        containerConteudo.Visible = true
-        btnMinimizar.Text = "-"
+    minimizado = not minimizado
+    local tamanhoAlvo = minimizado and UDim2.new(0, 480, 0, 40) or UDim2.new(0, 480, 0, 300)
+    local posAlvoSidebar = minimizado and UDim2.new(0, 10, 0, -1000) or UDim2.new(0, 10, 0, 50)
+    local posAlvoConteudo = minimizado and UDim2.new(0, 125, 0, -1000) or UDim2.new(0, 125, 0, 50)
+    
+    TweenService:Create(painel, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Size = tamanhoAlvo}):Play()
+    TweenService:Create(sidebar, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Position = posAlvoSidebar}):Play()
+    TweenService:Create(containerConteudo, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Position = posAlvoConteudo}):Play()
+    
+    btnMinimizar.Text = minimizado and "+" or "-"
+end)
+
+-- Lógica ESP, Pets, Noclip
+btnESP.MouseButton1Click:Connect(function() state.espAtivo = not state.espAtivo; toggleBotao(btnESP, "👁️ ESP (Ver Players): ", state.espAtivo, CORES.BotaoAtivo) end)
+btnPets.MouseButton1Click:Connect(function() state.petsOcultos = not state.petsOcultos; toggleBotao(btnPets, "🐾 Ocultar Pets: ", state.petsOcultos, CORES.BotaoAtivo) end)
+btnNoclip.MouseButton1Click:Connect(function() state.noclipAtivo = not state.noclipAtivo; toggleBotao(btnNoclip, "👻 Noclip: ", state.noclipAtivo, CORES.BotaoAtivo) end)
+
+-- Lógica Farm
+btnAutoAttack.MouseButton1Click:Connect(function() state.autoAttackAtivo = not state.autoAttackAtivo; toggleBotao(btnAutoAttack, "⚔️ Auto-Attack: ", state.autoAttackAtivo, CORES.BotaoAtivo) end)
+btnHitbox.MouseButton1Click:Connect(function() state.hitboxAtivo = not state.hitboxAtivo; toggleBotao(btnHitbox, "🎯 Hitbox: ", state.hitboxAtivo, CORES.BotaoAtivo) end)
+btnElevador.MouseButton1Click:Connect(function() state.plataformaAtiva = not state.plataformaAtiva; toggleBotao(btnElevador, "🧱 Elevador Voador: ", state.plataformaAtiva, CORES.BotaoAtivo) end)
+
+-- Lógica Speed
+btnSpeedToggle.MouseButton1Click:Connect(function() 
+    state.speedAtivo = not state.speedAtivo
+    btnSpeedToggle.Text = "⚡ Speed (Bypass): " .. (state.speedAtivo and "ON (" .. state.velocidadeAtual .. ")" or "OFF")
+    local corAlvo = state.speedAtivo and CORES.BotaoAtivo or CORES.BotaoInativo
+    TweenService:Create(btnSpeedToggle, TweenInfo.new(0.2), {BackgroundColor3 = corAlvo}):Play()
+    
+    if not state.speedAtivo then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then char.Humanoid.WalkSpeed = 16 end
     end
 end)
 
-btnESP.MouseButton1Click:Connect(function()
-    state.espAtivo = not state.espAtivo
-    toggleBotao(btnESP, "👁️ ESP (Ver Players): ", state.espAtivo, CORES.BotaoAtivo)
-end)
-
-btnPets.MouseButton1Click:Connect(function()
-    state.petsOcultos = not state.petsOcultos
-    toggleBotao(btnPets, "🐾 Ocultar Pets (Anti-Lag): ", state.petsOcultos, CORES.BotaoAtivo)
-end)
-
-btnNoclip.MouseButton1Click:Connect(function()
-    state.noclipAtivo = not state.noclipAtivo
-    toggleBotao(btnNoclip, "👻 Noclip (Atravessar): ", state.noclipAtivo, CORES.BotaoAtivo)
-end)
-
-btnSpeed.MouseButton1Click:Connect(function()
-    state.speedAtivo = not state.speedAtivo
-    toggleBotao(btnSpeed, "⚡ Speed (Bypass): ", state.speedAtivo, CORES.BotaoAtivo)
-end)
-
-btnAutoAttack.MouseButton1Click:Connect(function()
-    state.autoAttackAtivo = not state.autoAttackAtivo
-    toggleBotao(btnAutoAttack, "⚔️ Auto-Attack: ", state.autoAttackAtivo, CORES.BotaoAtivo)
-end)
-
-btnHitbox.MouseButton1Click:Connect(function()
-    state.hitboxAtivo = not state.hitboxAtivo
-    toggleBotao(btnHitbox, "🎯 Hitbox: ", state.hitboxAtivo, CORES.BotaoAtivo)
-end)
-
-btnElevador.MouseButton1Click:Connect(function()
-    state.plataformaAtiva = not state.plataformaAtiva
-    toggleBotao(btnElevador, "🧱 Elevador Voador: ", state.plataformaAtiva, CORES.BotaoAtivo)
-end)
-
-btnAutoSnipe.MouseButton1Click:Connect(function()
-    state.autoSnipeAtivo = not state.autoSnipeAtivo
-    toggleBotao(btnAutoSnipe, "🥚 Auto-Snipe: ", state.autoSnipeAtivo, CORES.BotaoAtivo)
-end)
+-- Lógica TP Slots
+local function atualizarSlots()
+    if state.slotSelecionado == 1 then
+        btnSlot1.BackgroundColor3 = CORES.BotaoAtivo
+        btnSlot1.TextColor3 = CORES.Texto
+        btnSlot1.Text = "Slot 1 (Ativo)"
+        btnSlot2.BackgroundColor3 = CORES.BotaoInativo
+        btnSlot2.TextColor3 = CORES.TextoSub
+        btnSlot2.Text = "Slot 2"
+        btnSalvar.Text = "💾 Salvar no Slot 1"
+        btnTP.Text = "🚀 TP p/ Slot 1"
+    else
+        btnSlot1.BackgroundColor3 = CORES.BotaoInativo
+        btnSlot1.TextColor3 = CORES.TextoSub
+        btnSlot1.Text = "Slot 1"
+        btnSlot2.BackgroundColor3 = CORES.BotaoAtivo
+        btnSlot2.TextColor3 = CORES.Texto
+        btnSlot2.Text = "Slot 2 (Ativo)"
+        btnSalvar.Text = "💾 Salvar no Slot 2"
+        btnTP.Text = "🚀 TP p/ Slot 2"
+    end
+end
+btnSlot1.MouseButton1Click:Connect(function() state.slotSelecionado = 1; atualizarSlots() end)
+btnSlot2.MouseButton1Click:Connect(function() state.slotSelecionado = 2; atualizarSlots() end)
 
 btnSalvar.MouseButton1Click:Connect(function()
     local char = LocalPlayer.Character
-    if char then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            state.posicoesSalvas[1] = hrp.CFrame
-            btnSalvar.Text = "💾 Base Salva!"
-            task.delay(2, function() btnSalvar.Text = "💾 Salvar Base (Slot 1)" end)
-        end
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char.HumanoidRootPart
+        local params = RaycastParams.new()
+        params.FilterDescendantsInstances = {char}
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        local raio = workspace:Raycast(hrp.Position, Vector3.new(0, -50, 0), params)
+        local chao = raio and raio.Position or hrp.Position
+        
+        state.posicoesSalvas[state.slotSelecionado] = chao
+        btnSalvar.Text = "✔ Salvo no Slot " .. state.slotSelecionado .. "!"
+        task.delay(2, function() btnSalvar.Text = "💾 Salvar no Slot " .. state.slotSelecionado end)
     end
 end)
 
 btnTP.MouseButton1Click:Connect(function()
-    if not state.posicoesSalvas[1] then return end
+    local chaoSalvo = state.posicoesSalvas[state.slotSelecionado]
+    if not chaoSalvo then return end
     local char = LocalPlayer.Character
-    if char then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CFrame = state.posicoesSalvas[1]
-            hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
-        end
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(chaoSalvo.X, chaoSalvo.Y + 3, chaoSalvo.Z))
+        char.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        char.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
     end
+end)
+
+-- ================= SLIDER DE VELOCIDADE =================
+local MIN_SPEED, MAX_SPEED = 16, 1000
+local dragging = false
+
+local function updateSlider(inputX)
+    local pos = math.clamp(inputX - sliderBg.AbsolutePosition.X, 0, sliderBg.AbsoluteSize.X)
+    local ratio = pos / sliderBg.AbsoluteSize.X
+    local value = math.floor(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * ratio + 0.5)
+    fill.Size = UDim2.new(ratio, 0, 1, 0)
+    knob.Position = UDim2.new(ratio, 0, 0.5, 0)
+    state.velocidadeAtual = value
+    if state.speedAtivo then btnSpeedToggle.Text = "⚡ Speed (Bypass): ON (" .. value .. ")" end
+end
+
+knob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then updateSlider(input.Position.X) end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
 end)
 
 -- ================= ARRASTAR PAINEL =================
@@ -295,32 +349,33 @@ header.InputBegan:Connect(function(input)
         draggingPanel, dragStart, startPos = true, input.Position, painel.Position 
     end 
 end)
-
 UserInputService.InputChanged:Connect(function(input)
     if draggingPanel and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local d = input.Position - dragStart
         painel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
     end
 end)
-
 UserInputService.InputEnded:Connect(function(input) 
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
         draggingPanel = false 
     end 
 end)
 
--- ================= LOOP PRINCIPAL =================
+-- ================= LOOPS DE JOGO =================
 RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     if not char then return end
-    
     local hrp = char:FindFirstChild("HumanoidRootPart")
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hrp or not hum then return end
 
+    -- Noclip e Speed
     if state.noclipAtivo then
         for _, parte in ipairs(char:GetDescendants()) do
             if parte:IsA("BasePart") then parte.CanCollide = false end
+        end
+        if hrp.AssemblyLinearVelocity.Magnitude > 100 then
+            hrp.AssemblyLinearVelocity = hrp.CFrame.LookVector * 16 
         end
     end
 
@@ -333,6 +388,7 @@ RunService.Heartbeat:Connect(function()
         hum.WalkSpeed = state.velocidadeAtual
     end
 
+    -- Elevador
     if state.plataformaAtiva then
         if not state.plataformaAtual or not state.plataformaAtual.Parent then
             local plat = Instance.new("Part")
@@ -353,65 +409,12 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ================= LOOP AUTO-SNIPE =================
+-- Loop Farm
 task.spawn(function()
-    while task.wait(0.1) do
-        if state.autoSnipeAtivo then
-            local char = LocalPlayer.Character
-            if not char then continue end
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if not hrp then continue end
-
-            local ovosNoMapa = workspace:GetDescendants()
-            local ovoAlvo = nil
-            local menorDist = 9999
-
-            for _, obj in ipairs(ovosNoMapa) do
-                if obj:IsA("BasePart") or obj:IsA("Model") then
-                    local nome = string.lower(obj.Name)
-                    if (string.find(nome, "egg") or string.find(nome, "ovo")) and not obj:FindFirstAncestorOfClass("Model") then
-                        local pos = obj:IsA("BasePart") and obj.Position or (obj:FindFirstChild("HumanoidRootPart") and obj.HumanoidRootPart.Position)
-                        if pos then
-                            local dist = (pos - hrp.Position).Magnitude
-                            if dist < menorDist then
-                                menorDist = dist
-                                ovoAlvo = obj
-                            end
-                        end
-                    end
-                end
-            end
-
-            if ovoAlvo then
-                local posOvo = ovoAlvo:IsA("BasePart") and ovoAlvo.Position or (ovoAlvo:FindFirstChild("HumanoidRootPart") and ovoAlvo.HumanoidRootPart.Position)
-                
-                if posOvo then
-                    hrp.CFrame = CFrame.new(posOvo + Vector3.new(0, 3, 0))
-                    
-                    local prompt = ovoAlvo:FindFirstChildWhichIsA("ProximityPrompt", true)
-                    if prompt then
-                        fireproximityprompt(prompt)
-                    end
-
-                    if state.posicoesSalvas[1] then
-                        task.wait(0.1)
-                        hrp.CFrame = state.posicoesSalvas[1]
-                        hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
-                    end
-                end
-            end
-        end
-    end
-end)
-
--- ================= LOOP AUTO-FARM =================
-task.spawn(function()
-    while task.wait(0.05) do 
+    while task.wait(0.03) do 
         if not state.autoAttackAtivo and not state.hitboxAtivo then continue end
-        
         local char = LocalPlayer.Character
         if not char then continue end
-        
         local hrp = char:FindFirstChild("HumanoidRootPart")
         local hum = char:FindFirstChildOfClass("Humanoid")
         if not hrp or not hum then continue end
@@ -432,19 +435,14 @@ task.spawn(function()
             if modelo and modelo ~= char then
                 local npcHum = modelo:FindFirstChildOfClass("Humanoid")
                 local npcHrp = modelo:FindFirstChild("HumanoidRootPart") or modelo:FindFirstChild("Torso")
-                
                 if npcHum and npcHum.Health > 0 and npcHrp and not Players:GetPlayerFromCharacter(modelo) then
                     if state.hitboxAtivo then
                         if not hitboxOriginais[modelo] then hitboxOriginais[modelo] = npcHrp.Size end
                         npcHrp.Size = Vector3.new(30, 30, 30)
                         npcHrp.Transparency = 0.5
                     end
-                    
                     local dist = (npcHrp.Position - hrp.Position).Magnitude
-                    if dist < menorDist then
-                        menorDist = dist
-                        alvo = modelo
-                    end
+                    if dist < menorDist then menorDist = dist; alvo = modelo end
                 end
             end
         end
@@ -457,7 +455,6 @@ task.spawn(function()
                     if ferramenta then hum:EquipTool(ferramenta); arma = ferramenta end
                 end
             end
-            
             if arma then
                 for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
                     if track.Priority == Enum.AnimationPriority.Action then track:Stop() end
